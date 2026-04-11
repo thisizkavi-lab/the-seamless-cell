@@ -58,6 +58,34 @@ export const COLORS = {
   spindle:      0x40C4FF,
   contractileRing: 0xFF4081,
   centrosome:   0x00E676,
+
+  // ─── Cell Cycle Regulators ───
+  cyclinD:      0xFFAB40,   // amber
+  cyclinE:      0xFF6D00,   // deep orange
+  cyclinA:      0xFFC107,   // amber
+  cyclinB:      0xFF3D00,   // red-orange
+  cdk:          0x8D6E63,   // brown
+  rb:           0xE53935,   // red (unphosphorylated)
+  rbPhospho:    0x43A047,   // green (phosphorylated)
+  p53:          0x00BFA5,   // teal
+  apc:          0xAA00FF,   // purple
+  separase:     0x76FF03,   // light green
+  cohesin:      0xFF9100,   // orange links
+  replicationFork: 0x64FFDA, // cyan-green
+
+  // ─── Apoptosis ───
+  fas:          0xD50000,   // deep red
+  fasLigand:    0xFF1744,   // red
+  fadd:         0xFF6F00,   // amber
+  caspase8:     0xF4511E,   // red-orange
+  bid:          0xFFA726,   // amber
+  tBid:         0xEF6C00,   // dark amber
+  baxBak:       0xB71C1C,   // dark red
+  cytochromeC:  0xFF8F00,   // amber-gold
+  apaf1:        0x7C4DFF,   // deep purple
+  apoptosome:   0x651FFF,   // indigo
+  caspase3:     0xDD2C00,   // scarlet
+  apoptoticBody: 0x455A64,  // blue-grey
 };
 
 // ─── Focus Tracks ───
@@ -111,7 +139,7 @@ export const TRACKS = {
       tissue: 'tissue',
       cell: 'tissue',
       organelle: 'organelle_division',
-      molecular: 'organelle_division',
+      molecular: 'molecular_apoptosis',
     },
   },
 };

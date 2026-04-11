@@ -15,6 +15,7 @@ import { TransportWorld } from './worlds/TransportWorld.js';
 import { TissueWorld } from './worlds/TissueWorld.js';
 import { SignalingWorld } from './worlds/SignalingWorld.js';
 import { DivisionWorld } from './worlds/DivisionWorld.js';
+import { ApoptosisWorld } from './worlds/ApoptosisWorld.js';
 import { HUD } from './ui/HUD.js';
 
 // ════════════════════════════════════════════════════════════
@@ -146,6 +147,7 @@ class SeamlessCell {
 
     // ── Division track worlds ──
     this.divisionWorld = new DivisionWorld(this.scene);
+    this.apoptosisWorld = new ApoptosisWorld(this.scene);
 
     // Register all with LODManager
     this.lod.registerWorld('cell', this.cellWorld);
@@ -157,6 +159,7 @@ class SeamlessCell {
     this.lod.registerWorld('tissue', this.tissueWorld);
     this.lod.registerWorld('molecular_signaling', this.signalingWorld);
     this.lod.registerWorld('organelle_division', this.divisionWorld);
+    this.lod.registerWorld('molecular_apoptosis', this.apoptosisWorld);
   }
 
   _initHUD() {

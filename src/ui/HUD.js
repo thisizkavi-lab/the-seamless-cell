@@ -377,7 +377,7 @@ export class HUD {
       },
       division: {
         tissue: 'CELL COMMUNITY', cell: 'CELL COMMUNITY',
-        organelle: 'MITOSIS', molecular: 'SPINDLE & CHROMOSOMES',
+        organelle: 'CELL CYCLE + MITOSIS', molecular: 'APOPTOSIS (Cell Death)',
       },
     };
     return names[track]?.[level] || level.toUpperCase();
@@ -412,8 +412,8 @@ export class HUD {
       division: {
         tissue: { title: 'Cell Community', text: 'Growth factor signals stimulate cell division. Neighboring cells coordinate when to divide via contact inhibition and secreted growth factors.' },
         cell: { title: 'Cell Community', text: 'Before a cell divides, it must grow, duplicate its DNA (S phase), and check for errors (G2). Growth signals from neighbors determine whether to proceed.' },
-        organelle: { title: 'Mitosis', text: 'Watch the 7 stages: Interphase (loose DNA) → Prophase (chromosomes condense) → Prometaphase (nuclear envelope breaks) → Metaphase (chromosomes align) → Anaphase (sisters pulled apart!) → Telophase (nuclei reform) → Cytokinesis (cell pinches in two).' },
-        molecular: { title: 'Spindle & Chromosomes', text: 'Purple X-shapes = chromosomes. Red dots = kinetochores (attachment points). Blue lines = spindle microtubules. Green dots = centrosomes (poles). Pink ring = contractile ring (actin+myosin). M-Cdk triggers it all.' },
+        organelle: { title: 'Cell Cycle + Mitosis', text: 'Watch the full cell cycle with named regulators: G1 (Cyclin D-Cdk4/6 → Rb phosphorylation) → p53 checkpoint → S phase (Cyclin E-Cdk2, DNA replication) → G2 → M-Cdk triggers prophase → APC/C activates Separase → Cohesin cleaved → sisters separate → 1 cell → 2 → 4 daughters!' },
+        molecular: { title: 'Apoptosis (Cell Death)', text: 'Fas Ligand → Fas Receptor → FADD/DISC → Caspase-8 (scissors) → cleaves Bid → tBid reaches mitochondria → Bax/Bak pores → Cytochrome c leaks → Apoptosome (Apaf-1 wheel) → Caspase-9 → Caspase-3 (executioner) → cell shrinks, blebs, apoptotic bodies.' },
       },
     };
     const data = info[track]?.[level];
