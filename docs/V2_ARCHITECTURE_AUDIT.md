@@ -125,7 +125,7 @@ graph TD
   * Zoom `0.6` (Organelle) $\to$ Distance `16`, FOV `42°`
   * Zoom `1.0` (Molecular) $\to$ Distance `8`, FOV `30°`
 * **Defects & Fragility:**
-  * Total dynamic range of camera distance is only $35 / 8 = 4.375\times$. In reality, the scale transition from tissue ($100\text{ }\mu\text{m}$) to macromolecule ($10\text{ nm}$) is approximately $10,000\times$, and to the chemical bond ($0.1\text{ nm}$) is $10^6\times$ (one million-fold).
+  * Total dynamic range of camera distance is only $35 / 8 = 4.375\times$. In reality, the scale transition from a whole cell ($20\text{ }\mu\text{m}$) to the chemical bond ($0.1\text{ nm}$) is $2 \times 10^5$ ($200,000\times$). Extending to multicellular tissue scale ($100\text{ }\mu\text{m}$) reaches a dynamic range of $\approx 10^6\times$ (one million-fold).
   * Camera always looks directly at $(0,0,0)$.
   * Every world is instantiated at initialization and added simultaneously to `this.scene`, regardless of track or zoom level.
 
@@ -234,7 +234,7 @@ The nucleotide exchange reaction does not exist as an entity or state property. 
 
 ### 2. The Scale Fallacy
 The prototype handles scale by shrinking and expanding camera distance between $35$ and $8$ Three.js units, swapping entire worlds at $(0,0,0)$. 
-* **Dynamic Range Failure:** A mammalian cell ($\sim 20\text{ }\mu\text{m} = 2 \times 10^{-5}\text{ m}$) and a carbon-carbon bond ($\sim 0.154\text{ nm} = 1.54 \times 10^{-10}\text{ m}$) differ by over $130,000\times$, and reaching tissue scale ($100\text{ }\mu\text{m}$) creates a dynamic range of $\approx 10^6\times$ (one million-fold). A single standard WebGL float32 depth buffer cannot span this range without catastrophic z-fighting or near-plane clipping.
+* **Dynamic Range Failure:** A mammalian cell ($\sim 20\text{ }\mu\text{m} = 2 \times 10^{-5}\text{ m}$) and a chemical bond ($\sim 0.1\text{ nm} = 10^{-10}\text{ m}$) span a dynamic range of $2 \times 10^5$ ($200,000\times$). Traversal beginning around multicellular / tissue scale ($100\text{ }\mu\text{m} = 10^{-4}\text{ m}$) extends this to $\approx 10^6\times$ (one million-fold). A single standard WebGL float32 depth buffer cannot span this range without catastrophic z-fighting or near-plane clipping.
 * **Spatial Disconnection:** Zooming in does not penetrate the surface of an existing cell; it crossfades into an unrelated floating object. The user never builds an intuition for spatial containment.
 
 ### 3. Time, Causality, and Scrubbing
@@ -383,8 +383,17 @@ classDiagram
         +SpatialCompartment compartment
         +string parentEntityId
         +string[] childEntityIds
+        +Set~AbstractionLevel~ availableRepresentations
         +EpistemicStatus epistemicStatus
-        +Map properties
+        +PhysicalDimensions dimensions
+        +QuantitativeKinetics kinetics
+    }
+
+    class RepresentationController {
+        +Map~string, AbstractionLevel~ entityActiveTier
+        +getActiveTier(entityId)
+        +setActiveTier(entityId, tier)
+        +evaluateLODTransitions(worldState, viewState)
     }
 
     class RepresentationLevel {
@@ -392,7 +401,8 @@ classDiagram
         +AbstractionLevel levelName
         +NumberRange visibleScreenAreaRange
         +THREE.Object3D visualObject
-        +update(dt, entityState)
+        +boolean isSymbolic
+        +update(dt, worldState, viewState)
         +dispose()
     }
 
@@ -409,16 +419,22 @@ classDiagram
         +renderCPKSpheres()
     }
 
-    BiologicalEntity "1" o-- "1..*" RepresentationLevel : contains
+    BiologicalEntity ..> AbstractionLevel : declares availability
+    RepresentationController o-- "1..*" RepresentationLevel : manages visual instances
+    RepresentationController --> BiologicalEntity : references
     RepresentationLevel <|-- LevelA_Symbolic
     RepresentationLevel <|-- LevelB_CoarseGrained
     RepresentationLevel <|-- LevelC_SecondaryStructure
     RepresentationLevel <|-- LevelD_Atomic
 ```
 
-* **`BiologicalEntity`**: The persistent logical object. Carries canonical identity, biological parent/child relationships, state machine variables, and quantitative metadata. It is never destroyed during zoom transitions.
-* **`RepresentationLevel`**: The visual manifestation of an entity at a specific scale. An entity holds a registry of representation levels (`Level A: Symbolic/Density`, `Level B: Coarse Envelope`, `Level C: Secondary Structure Ribbon`, `Level D: Atomic CPK`).
-* **Transition Logic**: As screenspace projected area changes, the `SemanticLODSelector` crossfades or swaps representation levels while preserving the underlying pointer to the `BiologicalEntity`. Raycasting/picking always resolves to the persistent `BiologicalEntity`, regardless of which visual LOD was hit.
+* **`BiologicalEntity` (WorldState Ground Truth)**: The persistent logical object. Carries canonical identity, biological parent/child relationships, state machine variables, and quantitative metadata. It is never destroyed during zoom transitions. Crucially, **`activeRepresentationTier` does NOT belong to `BiologicalEntity`**. `BiologicalEntity` declares available representation tiers (`availableRepresentations: ReadonlySet<AbstractionLevel>`), but has zero knowledge of which representation the observer is viewing.
+* **`RepresentationController` / `ViewState` (Observer Operations)**: Active representation selection belongs strictly to `ViewState` (e.g., `entityActiveTier: Map<string, AbstractionLevel>`) and is evaluated dynamically by the renderer-side `RepresentationController` based on camera distance, screen-space footprint, and user preferences.
+* **`RepresentationLevel`**: The visual manifestation of an entity at a specific scale (`Level A: Symbolic/Density`, `Level B: Coarse Envelope`, `Level C: Secondary Structure Ribbon`, `Level D: Atomic CPK`).
+* **Symbolic Tagging & Glow Policy**:
+  * Any schematic, token, or particle-swarm representation (such as `LevelA_Symbolic`) must be explicitly tagged **`SYMBOLIC`** in its metadata and inspector telemetry.
+  * **Do NOT use glow as a default indication of molecules, metabolites, ions, or activity.** Shading must remain physically motivated. Visual glow, neon bloom, and chromatic fringes are banned as indicators of biological state and are reserved strictly for deliberate, non-biological UI highlight cues.
+* **Transition Logic**: As screenspace projected area changes, the `RepresentationController` crossfades or swaps representation levels while preserving the underlying pointer to the `BiologicalEntity`. Raycasting/picking always resolves to the persistent `BiologicalEntity`, regardless of which visual LOD was hit.
 
 ---
 
@@ -503,9 +519,7 @@ graph LR
 
 ## E. Scale Architecture: Candidate Strategy Evaluations
 
-The intended physical span of The Seamless Cell extends from approximately $0.1\text{ nm} = 10^{-10}\text{ m}$ (chemical bonds and small molecules) to $100\text{ }\mu\text{m} = 10^{-4}\text{ m}$ (multicellular tissue cross-sections). 
-
-This is a dynamic range of $\approx 10^6\times$ (one million-fold).
+The physical span of the primary single-cell traversal extends from a mammalian cell ($\sim 20\text{ }\mu\text{m} = 2 \times 10^{-5}\text{ m}$) down to chemical bonds and small molecules ($\sim 0.1\text{ nm} = 10^{-10}\text{ m}$), representing a dynamic range of $2 \times 10^5$ ($200,000\times$). Traversal beginning around multicellular tissue scale ($100\text{ }\mu\text{m} = 10^{-4}\text{ m}$) extends this to $\approx 10^6\times$ (one million-fold).
 
 Rather than prematurely locking an extreme-scale implementation, we formally evaluate four architectural candidates across ten objective criteria.
 
@@ -518,7 +532,7 @@ Rather than prematurely locking an extreme-scale implementation, we formally eva
 * **Strategy C (Multiple Independent Scale Spaces with Semantic Transitions):**
   Discrete, isolated scale spaces (Tissue Space, Cellular Space, Organelle Space, Molecular Space) that exist side-by-side. As the camera approaches a boundary, the engine orchestrates a continuous camera and depth-matched transition into the next space, while the persistent biological entity identity is preserved.
 * **Strategy D (Hybrid B/C with Selective Camera-Relative Rendering):**
-  Primary spatial domains (Cell, Nucleus, Mitochondrion) operate in scale-local coordinate frames, but when a deep zoom into a specific sub-structure occurs, that active sub-tree is rebased dynamically into a camera-relative floating frame to guarantee local vertex precision.
+  Primary spatial domains (Cell, Nucleus, Mitochondrion) operate in scale-local coordinate frames, but when a deep zoom into a specific sub-structure occurs, that active sub-tree is rebased dynamically into a camera-relative floating frame to ensure measurable screen-space vertex stability ($\le 0.5\text{ px}$ deviation under camera rotation).
 
 ---
 
@@ -526,7 +540,7 @@ Rather than prematurely locking an extreme-scale implementation, we formally eva
 
 | Evaluation Criterion | Strategy A: Global Floating-Origin + LogDepth | Strategy B: Nested Coordinate Frames | Strategy C: Independent Spaces + Semantic Transitions | Strategy D: Hybrid Nested + Selective Floating Origin |
 | :--- | :--- | :--- | :--- | :--- |
-| **1. Numerical Stability across $10^6\times$** | **High.** Camera-relative subtraction completely eliminates jitter near focus. | **Medium.** Matrix concatenation across deep parent trees accumulates floating point errors. | **High.** Each space uses standard scale numbers with no extreme values. | **Very High.** Combines local domain stability with camera-relative zero-jitter at focus. |
+| **1. Numerical Stability across Scale** | **High.** Camera-relative subtraction eliminates jitter near focus across $2 \times 10^5$ ($200,000\times$) cell dynamic range and $\approx 10^6\times$ tissue scale. | **Medium.** Matrix concatenation across deep parent trees accumulates floating point errors. | **High.** Each space uses standard scale numbers with no extreme values. | **Very High.** Combines local domain stability with camera-relative sub-pixel stability ($\le 0.5\text{ px}$) at focus. |
 | **2. Three.js / WebGL Practicality** | **Medium.** Requires custom vertex shaders or patching Three.js `onBeforeRender` for model-view rebasing. | **High.** Standard Three.js scene graph parenting (`parent.add(child)`). | **High.** Uses standard Three.js cameras and scenes directly. | **Medium-High.** Rebase applied only to active focus branch. |
 | **3. Camera Continuity** | **Very High.** Truly continuous 3D camera trajectory through space. | **Medium.** Smooth transitions across nested scales require inverse-matrix camera tracking. | **Medium.** Requires choreography to hide boundary handoffs without apparent popping. | **High.** Camera navigates nested frames seamlessly with local damping. |
 | **4. Picking & Raycasting** | **Medium.** Raycaster must use camera-relative coordinates. | **Low.** Raycasting through deep, radically scaled parent matrices causes precision failures. | **High.** Standard Three.js raycasting within the active scale space. | **High.** Raycaster operates directly in the active local frame. |
@@ -569,26 +583,67 @@ The active scaling factor is continuously reported in the Scientific Inspector (
    $$\theta(t_{\text{bio}}) = (\omega \cdot t_{\text{bio}}) \pmod{2\pi}$$
    This allows instantaneous, jitter-free seeking to any point in time without simulating intermediate frames.
 2. **Keyframe-Interpolated Event Timelines:** Complex sequential processes (signaling cascades, mitosis) are stored as ordered state transitions with continuous intra-state progression functions.
-3. **PRNG State Seeding:** All stochastic micro-motions (thermal Brownian motion) use a seeded hash function of entity ID and timestamp, guaranteeing that scrubbing forward and backward produces 100% continuous, deterministic motion.
+3. **Deterministic Stochastic Trajectory System:**
+   Thermal Brownian agitation and stochastic micro-motions cannot be simulated by naively hashing an entity ID and timestamp (which yields uncorrelated white noise, producing discontinuous frame-to-frame jumping). Instead, V2 implements a deterministic stochastic trajectory system using two complementary mechanisms:
+   * **Continuous 3D Divergence-Free Curl-Noise Fields:**
+     For ambient Brownian drift and macromolecular buffeting, position perturbations are evaluated from continuous, divergence-free vector potential fields $\vec{v}(\vec{x}, t) = \nabla \times \vec{\Psi}(\vec{x}, t)$ sampled from seeded simplex noise lattices. The zero-divergence condition ($\nabla \cdot \vec{v} = 0$) ensures physically plausible incompressible fluid motion, while $C^1$ continuity in space and time guarantees smooth, non-teleporting trajectories across arbitrary continuous scrubs forward and backward.
+   * **Reproducible Differential Increments ($d\vec{W}$) with Interval Checkpointing:**
+     For discrete Langevin dynamics / diffusion processes ($d\vec{x} = \vec{\mu} dt + \sqrt{2D} d\vec{W}(t)$), Wiener increments $d\vec{W}_k$ are generated via a stateless counter-based PRNG (e.g., Philox-4x32 or SplitMix64 seeded by `(entityId, timeEpoch)`). Coarse simulation states are checkpointed at regular intervals (e.g., every 1.0 s of $t_{\text{bio}}$). Seeking to an arbitrary time point loads the nearest preceding checkpoint and integrates forward reproducibly over the sub-second interval. For microscopic sub-frame scrubbing, exact Brownian bridge interpolation connects checkpoint states reversibly.
 
 ---
 
 ## G. Scientific Asset Pipeline
 
-### 1. Biological Object Taxonomy & Asset Strategy
+### 1. Canonical Scientific Data vs. Derived Render Assets
+
+To prevent the loss or distortion of scientific truth during graphics optimization, V2 enforces a strict boundary between canonical data and derived visualization assets:
+
+```mermaid
+graph TD
+    subgraph CanonicalData["CANONICAL SCIENTIFIC DATA (Source of Truth)"]
+        PDB[PDB / mmCIF Coordinates - Verified Accessions]
+        SDF[PubChem SDF Chemical Structures]
+        Cryo[Cryo-ET Tomograms & Segmentations]
+        BNID[BioNumbers Quantitative Values]
+    end
+
+    subgraph DerivedAssets["DERIVED RENDER ASSETS (Visual Projections)"]
+        glTF[Draco / Meshopt glTF Meshes]
+        Surfaces[Solvent-Excluded Molecular Surfaces SES/SAS]
+        Splines[Procedural Secondary Structure Ribbons]
+        Buffers[GPU Instanced Attribute Buffers]
+        LODs[Geometry-Node Decimated LOD Shells]
+    end
+
+    CanonicalData -->|Deterministic Offline Build Pipeline| DerivedAssets
+    DerivedAssets -.->|Provenance Hash & Version Reference| CanonicalData
+```
+
+* **CANONICAL SCIENTIFIC DATA:**
+  * Authoritative, unmanipulated scientific sources: atomic coordinate files from RCSB PDB / AlphaFold DB whose accession codes have been explicitly reviewed and approved by the Scientific Lead, chemical connectivity graphs from PubChem, and validated physiological parameters from BioNumbers.
+  * Preserved in pristine condition in version-controlled data directories or canonical database citations.
+  * **Never** modified, warped, or simplified to conform to real-time engine limits.
+* **DERIVED RENDER ASSETS:**
+  * Artifacts generated for real-time WebGL rendering: decimated polygon meshes, smoothed molecular isosurfaces, cartoon secondary-structure splines, and Draco-compressed glTF binaries.
+  * Every derived asset retains an immutable provenance header recording the canonical source accession, build script version, simplification tolerance, and date of derivation.
+  * In the event that the Scientific Lead provides updated canonical coordinates or revised stoichiometric parameters, derived render assets are deterministically rebuilt from source via offline automated scripts.
+
+---
+
+### 2. Biological Object Taxonomy & Asset Strategy
 
 | Biological Classification | Visual Representation in V2 | Source Data Format | Authoring / Processing Tool | Runtime Asset Format |
 | :--- | :--- | :--- | :--- | :--- |
 | **Proteins & Macromolecular Complexes** (Polymerases, Histone Octamers, Receptors) | Multi-resolution: Unresolved density $\to$ coarse molecular surface $\to$ secondary structure ribbon $\to$ active-site atomic spheres | RCSB PDB, mmCIF, AlphaFold DB *(verified by Scientific Lead)* | **ChimeraX / PyMOL** (selection, orientation, surface extraction), **Blender** (mesh decimation, LOD packaging) | Draco-compressed glTF / binary attribute buffers |
-| **Nucleic Acids** (DNA Double Helix, Chromatin Fibers, mRNA, tRNA) | Parametric B-form double helix with base-pair rungs, nucleosome histone wrapping, flexible single-strand mRNA ribbons | Structural coordinates; mathematical parametric curves for genomic DNA | **Procedural Generator** (custom TypeScript curve engine), **Blender Geometry Nodes** | Procedurally generated instanced curve buffers |
+| **Nucleic Acids** (DNA Double Helix, Chromatin Fibers, mRNA, tRNA) | Parametric B-form double helix with base-pair rungs, nucleosome histone wrapping, flexible single-strand mRNA ribbons; irregular chromatin polymer path (decoupling local diameter $\sim 11\text{ nm}$, contour length, and nucleosome count) | Structural coordinates; mathematical parametric curves for genomic DNA | **Procedural Generator** (custom TypeScript curve engine), **Blender Geometry Nodes** | Procedurally generated instanced curve buffers |
 | **Lipid Membranes & Bilayers** (Plasma Membrane, Nuclear Envelope) | Continuous thin-sheet surfaces with normal maps, microdomain textures, and instanced lipid headgroups at close zoom | Cryo-EM tomography segmentation data, mathematical parametric manifolds | **Blender** (geometry node procedural sheets, boolean pore cutouts) | Optimized glTF meshes + custom WebGL vertex-displacement shaders |
 | **Cytoskeleton** (Microtubules, Actin Filaments, Centrosomes) | Hollow cylindrical tubulin polymers ($25\text{ nm}$ outer diameter) with protofilament sub-structures | Structural tubulin dimer references, biological nucleation rules | **Procedural Instancing Engine** | Instanced line/cylinder attribute buffers with dynamic assembly uniforms |
-| **Small Molecules & Metabolites** (Nucleotides, ATP, Ions) | Space-filling CPK atomic spheres or glowing symbolic metabolic tokens | PubChem SDF, PDB chemical component dictionary | **RDKit** (chemical topology normalization) | Shared low-poly glTF templates instantiated via GPU |
+| **Small Molecules & Metabolites** (Nucleotides, ATP, Ions) | Space-filling CPK atomic spheres or simplified geometric tokens explicitly tagged `SYMBOLIC` (Note: visual glow is strictly banned as a default indicator of molecules, metabolites, ions, or activity; glow is reserved exclusively for deliberate non-biological UI highlight cues) | PubChem SDF, PDB chemical component dictionary | **RDKit** (chemical topology normalization) | Shared low-poly glTF templates instantiated via GPU |
 | **Whole Cell & Tissue Architecture** | Basal lamina, extracellular matrix fiber lattice, cell-cell junctions | Histological micrographs, cryo-ET reconstructions | **Blender** (organic sculpting, procedural retopology) | glTF / WebP PBR material textures |
 
 ---
 
-### 2. External Scientific Tooling Evaluation
+### 3. External Scientific Tooling Evaluation
 
 ```
                     Scientific Asset Pipeline Flow
@@ -722,7 +777,27 @@ export interface BiologicalEntity {
   dimensions: PhysicalDimensions;
   kinetics: QuantitativeKinetics;
   compartment: SpatialCompartment;
-  representation: AbstractionLevel;
+  availableRepresentations: ReadonlySet<AbstractionLevel>; // Declares available representations; entity has no knowledge of active observer tier
+}
+
+/**
+ * Renderer-side Presentation & Observer State (ViewState)
+ */
+export interface ViewState {
+  camera: {
+    position: [number, number, number];
+    target: [number, number, number];
+    fov: number;
+  };
+  clippingPlanes: Array<{ normal: [number, number, number]; constant: number }>; // ViewState peeling only (never disrupts WorldState membranes)
+  cutawayAngle: number;
+  entityActiveTier: Map<string, AbstractionLevel>; // Renderer-side active tier per entity ID
+  inspectorSelectedEntityId: string | null;
+  clocks: {
+    cameraTimeSeconds: number;     // t_cam: observer movement (never advances t_bio unless requested)
+    playbackTimeSeconds: number;   // t_play: wall-clock playback
+    playbackRate: number;          // kappa scaling factor
+  };
 }
 ```
 
@@ -808,53 +883,54 @@ To reflect modern chromosome conformation biology and avoid treating the histori
 
 ```
 Provisional Structural Traversal:
-┌───────────────────────────────────────────────────────────┐
-│ 1. Mammalian Cell (~20 µm) [ASSUMPTION]                   │
-│    │                                                      │
-│    ▼  (ViewState envelope sectioning / peeling)           │
-│ 2. Cell Interior & Cytosol (~10 µm) [ASSUMPTION]          │
-│    │                                                      │
-│    ▼  (ViewState nuclear envelope sectioning)             │
-│ 3. Nucleus (~6 µm) [ASSUMPTION]                           │
-│    │                                                      │
-│    ▼                                                      │
-│ 4. Chromosome Territory (~1 µm) [ASSUMPTION]              │
-│    │                                                      │
-│    ▼                                                      │
-│ 5. Chromatin Compartment / Domain (~200 nm) [ASSUMPTION]  │
-│    │                                                      │
-│    ▼                                                      │
-│ 6. Chromatin Loop / Contact Domain (~100 nm) [ASSUMPTION] │
-│    │                                                      │
-│    ▼                                                      │
-│ 7. Irregular Nucleosome Chain (~11 nm chain) [ASSUMPTION] │
-│    │  (Beads-on-a-string; NO regular 30 nm fiber assumed) │
-│    ▼                                                      │
-│ 8. Nucleosome Core Particle (~11 nm) [ASSUMPTION]         │
-│    │                                                      │
-│    ▼                                                      │
-│ 9. DNA Double Helix (~2 nm) [ASSUMPTION]                  │
-│    │                                                      │
-│    ▼                                                      │
-│ 10. Base Pair (~0.34 nm) [ASSUMPTION]                     │
-│    │                                                      │
-│    ▼                                                      │
-│ 11. Atomic / Chemical Representation (~0.1 nm) [ASSUMPTION]│
-└───────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│ 1. Mammalian Cell (~20 µm) [ASSUMPTION]                                   │
+│    │                                                                      │
+│    ▼  (ViewState envelope sectioning / peeling)                           │
+│ 2. Cell Interior & Cytosol (~10 µm) [ASSUMPTION]                          │
+│    │                                                                      │
+│    ▼  (ViewState nuclear envelope sectioning)                             │
+│ 3. Nucleus (~6 µm) [ASSUMPTION]                                           │
+│    │                                                                      │
+│    ▼                                                                      │
+│ 4. Chromosome Territory (~1 µm) [ASSUMPTION]                              │
+│    │                                                                      │
+│    ▼                                                                      │
+│ 5. Local Chromatin Region (variable dimensions) [ASSUMPTION]              │
+│    │                                                                      │
+│    ▼                                                                      │
+│ 6. Irregular Chromatin Polymer / Loop Segment [ASSUMPTION]                │
+│    │  (Beads-on-a-string; bead diam ~11 nm; contour length decoupled)     │
+│    ▼                                                                      │
+│ 7. Nucleosome Core Particle (~11 nm diam, 5.7 nm height) [ASSUMPTION]     │
+│    │                                                                      │
+│    ▼                                                                      │
+│ 8. DNA Double Helix (~2 nm duplex diameter) [ASSUMPTION]                  │
+│    │                                                                      │
+│    ▼                                                                      │
+│ 9. Base-pair / nucleotide chemistry (~0.34 nm axial rise/bp) [ASSUMPTION] │
+│    │                                                                      │
+│    ▼                                                                      │
+│ 10. Atomic / Chemical Representation (~0.1 nm bond lengths) [ASSUMPTION]   │
+└───────────────────────────────────────────────────────────────────────────┘
 ```
 
 > [!IMPORTANT]
 > **Scientific Caveats & Conventions for Milestone 1:**
-> 1. **No Regular 30 nm Fiber:** The classical 30-nm solenoid/zigzag fiber is recognized in modern cryo-ET and Hi-C literature as an in vitro phenomenon. Interphase chromatin is modeled provisionally as an irregular polymer chain of nucleosomes forming contact domains.
-> 2. **Nuclear Pore as Specialized Branch:** The primary Scale Spine does **not** force traversal through a nuclear pore complex. Entry into the nucleus is handled via `ViewState` clipping/sectioning of the nuclear envelope. The nuclear pore complex is designated as a specialized future branch and inspection target.
-> 3. **All Numerical Values are Assumptions:** All physical dimensions above are explicitly marked as `[ASSUMPTION]` until verified ranges and cell-type contexts are supplied by the Scientific Lead.
+> 1. **Provisional Chromatin Hierarchy & No Fixed Chain Length:** Modern cryo-ET and Hi-C literature overturns the classical uniform 30-nm solenoid/zigzag fiber in vivo. Interphase chromatin is modeled provisionally as:
+>    `chromosome territory → local chromatin region → irregular chromatin polymer / loop segment → nucleosome → DNA`
+>    Formal A/B compartments, topologically associating domains / contact domains (TADs), and specific cohesin/CTCF loops will be introduced from Chapter 5 specifications later; they are not treated as discrete, uniform, fixed-size objects here. Furthermore, we explicitly decouple local chromatin diameter ($\sim 11\text{ nm}$ bead diameter), contour length, and discrete nucleosome count; no arbitrary fixed physical length is assigned to a chromatin chain.
+> 2. **Base-Pair Terminology:** $\sim 0.34\text{ nm}$ denotes the **B-DNA axial rise per base pair**, not total base-pair dimensions (duplex diameter is $\sim 2.0\text{ nm}$). Tier name: **"Base-pair / nucleotide chemistry"**.
+> 3. **Nuclear Pore as Specialized Branch:** The primary Scale Spine does **not** force traversal through a nuclear pore complex. Entry into the nucleus is handled via `ViewState` clipping/sectioning of the nuclear envelope. The nuclear pore complex is designated as a specialized future branch and inspection target.
+> 4. **Symbolic Representation & Glow Policy:** Any schematic, particle, or token representation must be explicitly tagged **`SYMBOLIC`**. Visual glow is strictly prohibited as a default indication of molecules, metabolites, ions, or activity; glow is reserved exclusively for deliberate non-biological UI highlight cues.
+> 5. **All Numerical Values are Assumptions:** All physical dimensions above are explicitly marked as `[ASSUMPTION]` until verified ranges and cell-type contexts are supplied by the Scientific Lead.
 
 ### Architectural Purpose:
-* Proves **continuous spatial orientation** across $\approx 10^6\times$ dynamic range without camera snapping.
-* Evaluates **Candidate Coordinate Strategies (A vs B vs C vs D)** under real rendering conditions.
-* Proves the **persistent `BiologicalEntity` identity model** across representation transitions.
+* Proves **continuous spatial orientation** across $2 \times 10^5$ ($200,000\times$) dynamic range ($20\text{ }\mu\text{m} \to 0.1\text{ nm}$), extensible to $\approx 10^6\times$ from tissue scale ($100\text{ }\mu\text{m}$), without camera snapping.
+* Evaluates **Candidate Coordinate Strategies (A vs B vs C vs D)** under real rendering conditions, achieving measurable screen-space stability (sub-pixel vertex deviation $\le 0.5\text{ px}$ under camera rotation).
+* Proves the **persistent `BiologicalEntity` identity model** across representation transitions, with active tier selection decoupled into `ViewState`.
 * Implements the **Dual-Interface system** (Learner View vs. Scientific Inspector).
-* Validates performance on the MacBook Pro target machine ($60\text{ fps}$ target).
+* Validates provisional performance engineering targets on the project MacBook Pro ($60\text{ fps}$ target; note that actual acceptance will be benchmarked empirically).
 * *Note:* This is an architectural spine prototype, not a completed Chapter 1 lesson. Detailed biological mechanisms will be populated incrementally as supplied by the Scientific Lead.
 
 ---
@@ -891,12 +967,12 @@ The prototype attempted to achieve the illusion of scale through camera distance
 
 ### What I Would Change Fundamentally
 1. **Eliminate World Swapping:** Transition to a persistent spatial hierarchy where structures exist inside parent compartments.
-2. **Decouple Biological State from Rendering:** Implement an independent state layer that drives visual presentation.
-3. **Resolve Extreme-Scale Dynamic Range:** Prototype and implement a validated coordinate strategy (Strategy D) spanning $0.1\text{ nm} \to 100\text{ }\mu\text{m}$ ($\approx 10^6\times$).
-4. **Implement Deterministic Scrubbable Time:** Replace unconstrained modulo clocks with an analytical, dual-clock simulation engine.
+2. **Decouple Biological State from Rendering:** Implement an independent state layer that drives visual presentation (`WorldState` vs. `ViewState`).
+3. **Resolve Extreme-Scale Dynamic Range:** Prototype and implement a validated coordinate strategy (Strategy D) spanning $20\text{ }\mu\text{m} \to 0.1\text{ nm}$ ($2 \times 10^5$, $200,000\times$), extensible to tissue scale $100\text{ }\mu\text{m}$ ($\approx 10^6\times$).
+4. **Implement Deterministic Scrubbable Time:** Replace unconstrained modulo clocks with an analytical, dual-clock simulation engine and a deterministic stochastic trajectory system.
 5. **Separate UI Planes:** Provide an uncluttered Learner View and an in-depth Scientific/Dev Inspector.
 
 ---
 
-*End of Architecture Audit (Phase 0 - Revision 2.1.0).*  
-*Next step: Create docs/MILESTONE_01_SCALE_SPINE_DESIGN.md.*
+*End of Architecture Audit (Phase 0 - Revision 2.2.0-APPROVED-SPEC).*  
+*Next step: Commit and push architecture documents to remote GitHub repository.*
