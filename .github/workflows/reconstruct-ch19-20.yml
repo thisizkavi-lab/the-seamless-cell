@@ -1,59 +1,23 @@
-name: Reconstruct Chapters 19-20
+name: Diagnose Transfer Tails
 
 on:
   push:
     branches:
       - integrate-ch19-20-clean
     paths:
-      - '.transfer/**'
       - '.github/workflows/reconstruct-ch19-20.yml'
 
-permissions:
-  contents: write
-
 jobs:
-  reconstruct:
+  diagnose:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout staging branch
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: integrate-ch19-20-clean
-          fetch-depth: 0
-
-      - name: Reconstruct and verify chapter files
+      - name: Show transfer tails
         shell: bash
         run: |
-          set -euo pipefail
-          mkdir -p science/chapters
-
-          : > science/chapters/19_sexual_reproduction_genetics.md
-          for f in .transfer/ch19/part-00 .transfer/ch19/part-01 .transfer/ch19/part-02 .transfer/ch19/part-03; do
-            base64 -d "$f" >> science/chapters/19_sexual_reproduction_genetics.md
-          done
-          { cat .transfer/ch19/part-04; printf '='; } | base64 -d >> science/chapters/19_sexual_reproduction_genetics.md
-
-          : > science/chapters/20_cell_communities_tissues_stem_cells_cancer.md
-          for f in .transfer/ch20/part-00 .transfer/ch20/part-01 .transfer/ch20/part-02a .transfer/ch20/part-02b .transfer/ch20/part-03a .transfer/ch20/part-03b .transfer/ch20/part-04a .transfer/ch20/part-04b; do
-            base64 -d "$f" >> science/chapters/20_cell_communities_tissues_stem_cells_cancer.md
-          done
-
-          echo '8c43a83d56d9b378c07af3d0070043a5fb60b363fc71ff4e0600316201d8c21e  science/chapters/19_sexual_reproduction_genetics.md' | sha256sum -c -
-          echo '997febf69f7f7f0d754480cb3a6d7eead5dab28a13b0238f87e01d0843b8a983  science/chapters/20_cell_communities_tissues_stem_cells_cancer.md' | sha256sum -c -
-
-      - name: Commit Chapter 19
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name 'Kavi'
-          git config user.email 'thisizkavi@gmail.com'
-          git add science/chapters/19_sexual_reproduction_genetics.md
-          git commit -m 'science: add Chapter 19 sexual reproduction genetics canon'
-
-      - name: Commit Chapter 20
-        shell: bash
-        run: |
-          set -euo pipefail
-          git add science/chapters/20_cell_communities_tissues_stem_cells_cancer.md
-          git commit -m 'science: add Chapter 20 cell communities tissues stem cells cancer canon'
-          git push origin HEAD:integrate-ch19-20-clean
+          echo "ch19-tail=$(tail -c 64 .transfer/ch19/part-04)"
+          echo "ch20-tail=$(tail -c 64 .transfer/ch20/part-04b)"
+          echo "ch19-size=$(wc -c < .transfer/ch19/part-04)"
+          echo "ch20-size=$(wc -c < .transfer/ch20/part-04b)"
