@@ -28,12 +28,12 @@ jobs:
           mkdir -p science/chapters
 
           : > science/chapters/19_sexual_reproduction_genetics.md
-          for f in .transfer/ch19/part-00 .transfer/ch19/part-01 .transfer/ch19/part-02 .transfer/ch19/part-03 .transfer/ch19/part-04; do
+          for f in .transfer/ch19/part-00 .transfer/ch19/part-01 .transfer/ch19/part-02 .transfer/ch19/part-03 .transfer/fix19/00 .transfer/fix19/01 .transfer/fix19/02 .transfer/fix19/03; do
             base64 -d "$f" >> science/chapters/19_sexual_reproduction_genetics.md
           done
 
           : > science/chapters/20_cell_communities_tissues_stem_cells_cancer.md
-          for f in .transfer/ch20/part-00 .transfer/ch20/part-01 .transfer/ch20/part-02a .transfer/ch20/part-02b .transfer/ch20/part-03a .transfer/ch20/part-03b .transfer/ch20/part-04a .transfer/ch20/part-04b; do
+          for f in .transfer/ch20/part-00 .transfer/ch20/part-01 .transfer/ch20/part-02a .transfer/ch20/part-02b .transfer/ch20/part-03a .transfer/ch20/part-03b .transfer/ch20/part-04a .transfer/fix20/00 .transfer/fix20/01 .transfer/fix20/02 .transfer/fix20/03 .transfer/fix20/04; do
             base64 -d "$f" >> science/chapters/20_cell_communities_tissues_stem_cells_cancer.md
           done
 
