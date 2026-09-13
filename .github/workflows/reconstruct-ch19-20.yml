@@ -26,11 +26,12 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p science/chapters
-          : > science/chapters/19_sexual_reproduction_genetics.md
-          for f in .transfer/ch19/part-*; do base64 --decode --ignore-garbage "$f" >> science/chapters/19_sexual_reproduction_genetics.md; done
-          : > science/chapters/20_cell_communities_tissues_stem_cells_cancer.md
-          for f in .transfer/ch20/part-*; do base64 --decode --ignore-garbage "$f" >> science/chapters/20_cell_communities_tissues_stem_cells_cancer.md; done
-          sha256sum science/chapters/19_sexual_reproduction_genetics.md science/chapters/20_cell_communities_tissues_stem_cells_cancer.md
+
+          # The connector transfer clipped only the tail of the final chunk:
+          # ch19 lost one trailing '='; ch20 lost its final 12 base64 chars.
+          { cat .transfer/ch19/part-*; printf '='; } | base64 -d > science/chapters/19_sexual_reproduction_genetics.md
+          { cat .transfer/ch20/part-*; printf 'IGJlZ2lucy4K'; } | base64 -d > science/chapters/20_cell_communities_tissues_stem_cells_cancer.md
+
           echo '8c43a83d56d9b378c07af3d0070043a5fb60b363fc71ff4e0600316201d8c21e  science/chapters/19_sexual_reproduction_genetics.md' | sha256sum -c -
           echo '997febf69f7f7f0d754480cb3a6d7eead5dab28a13b0238f87e01d0843b8a983  science/chapters/20_cell_communities_tissues_stem_cells_cancer.md' | sha256sum -c -
 
