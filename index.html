@@ -1,28 +1,67 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="The Seamless Cell — An interactive 3D visualization of cellular biology, from tissue to molecular machines." />
-  <title>The Seamless Cell</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { 
-      width: 100%; height: 100%; overflow: hidden; 
-      font-family: 'Inter', sans-serif;
-      background: #0a0a12;
-      color: #e0e0e0;
-    }
-    #canvas-container { width: 100%; height: 100%; position: fixed; top: 0; left: 0; }
-    canvas { display: block; }
-  </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>The Seamless Cell — Page concepts</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/src/review/review.css">
 </head>
 <body>
-  <div id="canvas-container"></div>
-  <script type="module" src="/src/main.js"></script>
+  <header class="review-header">
+    <div class="identity"><h1>The Seamless Cell</h1><span>Page concepts</span></div>
+    <nav aria-label="Page concepts">
+      <a href="#cell" aria-current="page"><span>01</span> Cell interior</a>
+      <a href="#mitochondrion"><span>02</span> Mitochondrion</a>
+      <a href="#atp"><span>03</span> ATP synthesis</a>
+    </nav>
+    <button type="button" class="notes-toggle" aria-expanded="false" aria-controls="design-notes">Design notes</button>
+  </header>
+
+  <main>
+    <section class="viewer" aria-label="Selected page concept">
+      <figure id="cell" aria-labelledby="cell-caption">
+        <img src="/visual-review/01-cell-interior.png" width="1536" height="1024" alt="Cell interior page concept: a lavender nucleus, folded teal endoplasmic reticulum, and a sectioned mitochondrion within a layered cellular landscape. Quiet structure and process tabs accompany the scene.">
+        <figcaption id="cell-caption">Cell interior — establish a sense of place, then choose a structure to explore.</figcaption>
+      </figure>
+      <figure id="mitochondrion" aria-labelledby="mitochondrion-caption" hidden>
+        <img src="/visual-review/02-mitochondrion.png" width="1536" height="1024" alt="Mitochondrion page concept: the camera looks across folded blue inner membranes, with an illustrative lavender ATP synthase and green peripheral support selected in the foreground.">
+        <figcaption id="mitochondrion-caption">Inside the mitochondrion — retain the surrounding membrane and compartment as the view moves closer.</figcaption>
+      </figure>
+      <figure id="atp" aria-labelledby="atp-caption" hidden>
+        <img src="/visual-review/03-atp-synthesis.png" width="1536" height="1024" alt="ATP synthesis page concept: a closer view of the same lavender and green assembly in its membrane setting, with the Processes tab selected and proposed Play sequence and Biology paused controls.">
+        <figcaption id="atp-caption">ATP synthesis — focus on a process while keeping its molecular structure and location recognizable.</figcaption>
+      </figure>
+    </section>
+
+    <footer class="review-footer">
+      <p>Static design concepts. Controls inside the images are proposed UI.</p>
+      <div class="review-actions">
+        <a class="prototype-link" href="./prototype.html">Interactive prototype</a>
+        <a class="resolution-link" href="./visual-review/01-cell-interior.png" target="_blank" rel="noopener">Open full resolution <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 14 14 6M6 6h8v8"/></svg></a>
+      </div>
+    </footer>
+
+    <section id="design-notes" class="design-notes" hidden aria-labelledby="notes-heading">
+      <div>
+        <h2 id="notes-heading">A world you can enter.</h2>
+        <p>The direction comes from the references’ molecular landscapes: sculpted surfaces, layered membranes, depth of field, and a camera that stays close to the biology. The proposed interface keeps spatial breadcrumbs and Structure / Processes views quiet.</p>
+        <p>These are original AI-generated page mockups for visual review. Geometry, colors, surface texture, crowding, and apparent scale are illustrative. They are not validated structural assets, microscopy, a functioning simulation, or a performance demonstration.</p>
+        <p>These concepts are published for visual review. The interactive prototype remains available separately, and the scientific canon is unchanged. Implementing the visual direction remains a separate step.</p>
+      </div>
+      <div>
+        <h3>Visual references</h3>
+        <ul>
+          <li><a href="https://www.youtube.com/watch?v=vkYEYjintqU" target="_blank" rel="noopener">Mitochondria: the cell’s powerhouse <span>Harvard Online</span></a></li>
+          <li><a href="https://www.youtube.com/watch?v=LQmTKxI4Wn4" target="_blank" rel="noopener">Electron transport chain <span>Harvard Online</span></a></li>
+          <li><a href="https://www.youtube.com/watch?v=XOaiWl-nW1k" target="_blank" rel="noopener">Overview of cell structure <span>Harvard Online</span></a></li>
+        </ul>
+        <p>Key visual sequences and the available transcripts were reviewed. No video frames, logos, or audio are included in these assets.</p>
+        <a href="https://github.com/thisizkavi-lab/the-seamless-cell/blob/main/docs/concept-review.md">Read the design and science notes</a>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="/src/review/review.js"></script>
 </body>
 </html>
